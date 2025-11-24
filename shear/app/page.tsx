@@ -95,7 +95,7 @@ export default function Home() {
       setCreateFullscreen(false);
       setHashDialogOpen(true);
     } catch (error) {
-      toast({ title: '错误', description: '保存失败', variant: 'destructive' });
+      toast({ title: '错误', description: '保存失败' });
     }
   };
 
