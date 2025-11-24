@@ -23,13 +23,17 @@ import { Plus, X, Eye, Hash, Lock, Copy } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
+const renderer = new marked.Renderer();
+renderer.code = (code, lang) => {
+  const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+  const highlighted = hljs.highlight(code, { language }).value;
+  return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+};
+
 marked.setOptions({
   gfm: true,
   breaks: true,
-  highlight: function (code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-    return hljs.highlight(code, { language }).value;
-  },
+  renderer: renderer,
 });
 
 const MarkdownViewer = ({ content }: { content: string }) => {
