@@ -101,7 +101,7 @@ export default function Home() {
 
   const handleFetch = async () => {
     if (!/^[a-f0-9]{64}$/i.test(hashInput)) {
-      toast({ title: '错误', description: 'SHA256 标识格式不正确。', variant: 'destructive' });
+      toast({ title: '错误', description: 'SHA256 标识格式不正确。' });
       return;
     }
     try {
@@ -120,7 +120,7 @@ export default function Home() {
       setViewFullscreen(true);
       setViewOpen(false);
     } catch (error) {
-      toast({ title: '错误', description: '拉取失败', variant: 'destructive' });
+      toast({ title: '错误', description: '拉取失败' });
     }
   };
 
