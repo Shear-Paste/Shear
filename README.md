@@ -5,7 +5,7 @@
 ## 项目简介
 
 在不同设备之间，用一个简单的链接和内容标识（SHA256）实现文本的快速共享与读取
-结构：前后端分离，前端纯静态页面，后端 Node 原生 HTTP 提供存储与查询接口
+结构：前后端分离，前端 Next.js + Shad-cn/ui，后端 Node 原生 HTTP 提供存储与查询接口
 
 ## 项目功能
 
@@ -17,42 +17,19 @@
   - 输入 SHA256 标识查询 Markdown 内容
   - 三种查看模式：纯文本、分屏（左原文右渲染）、完全渲染
   - 渲染端支持 GFM、代码高亮与 LaTeX 公式显示
-  - 适配移动端
-
-## 技术栈与依赖
-- 前端：
-  - Tailwind（CDN）+ 类 shadcn 风格的组件样式
-  - marked（Markdown 渲染）+ DOMPurify（安全过滤）
-  - highlight.js（代码高亮）
-  - KaTeX + auto-render（数学公式渲染）
-- 后端：
-  - Node.js 原生 `http` 模块
-  - 文件落盘存储，文件名为内容 SHA256，后缀 `.md`
 
 ## 目录结构
 ```
 backend/
   server.js         # 后端 HTTP 服务与存储逻辑
   storage/          # 运行后自动生成，用于保存剪贴内容（<hash>.md）
-frontend/
-  index.html        # 前端页面
-  app.js            # 交互逻辑与 API 调用、渲染实现
-  config.json       # 配置后端地址 { API_BASE_URL }
-  server.js         # 本地静态预览服务器
-```
 
-## 接口设计
-- POST `/api/clipboards`
-  - 请求体：`{ "content": "<markdown>" }`
-  - 响应体：`{ "hash": "<sha256 hex>" }`
-  - 行为：计算内容 SHA256 并以 `<hash>.md` 文件保存
-- GET `/api/clipboards/:hash`
-  - 响应体：`{ "content": "<markdown>" }`
-  - 错误：`404 { error: "Not found" }`
+# 前端请开发者自行探索。
+```
 
 ## 快速开始
 1) 安装与准备
-- 需要 Node.js 16+（或更高）
+- Node.js
 
 2) 启动后端
 ```
@@ -62,9 +39,11 @@ node backend/server.js
 
 3) 启动前端
 ```
-node frontend/server.js
+npm run dev
 ```
-- 打开浏览器访问 `http://localhost:5173/`
+- 打开浏览器访问 `http://localhost:3000/`
+
+或 部署: `npm run build`。
 
 4) 配置后端地址（可选）
 - 修改 `frontend/config.json` 中的 `API_BASE_URL` 指向你的后端
