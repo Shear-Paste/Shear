@@ -12,6 +12,8 @@ const TOAST_REMOVE_DELAY = 1000000;
 
 type ToastProps = {
   // props for the toast component
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 type State = {
