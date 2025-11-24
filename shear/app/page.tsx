@@ -24,7 +24,7 @@ import { Plus, X, Eye, Hash, Lock, Copy } from 'lucide-react';
 const API_BASE_URL = 'http://localhost:8080/api';
 
 const renderer = new marked.Renderer();
-renderer.code = (text, lang) => {
+renderer.code = ({ text, lang }) => {
   const language = hljs.getLanguage(lang) ? lang : 'plaintext';
   const highlighted = hljs.highlight(text, { language }).value;
   return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
