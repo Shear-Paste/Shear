@@ -14,7 +14,7 @@ import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
-import { Copy, Hash } from 'lucide-react';
+import { Copy, Hash, Pencil, Save, Trash2 } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -25,27 +25,52 @@ renderer.code = ({ text, lang }) => {
   return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
 };
 
-marked.setOptions({ gfm: true, breaks: true, renderer });
+marked.setOptions({ gfm: true, breaks: false, renderer, mangle: false, headerIds: false });
 
-function MarkdownViewer({ content }: { content: string }) {
+const MarkdownViewer = ({ content }: { content: string }) => {
   const [html, setHtml] = useState('');
+
   useEffect(() => {
     const src = typeof content === 'string' ? content : '';
     const rendered = marked.parse(src) as string;
     const withKatex = rendered
-      .replace(/\$\$([\s\S]*?)\$\$/g, (_m, tex) => katex.renderToString(tex, { throwOnError: false, displayMode: true }))
-      .replace(/\$([^$\n]+)\$/g, (_m, tex) => katex.renderToString(tex, { throwOnError: false, displayMode: false }));
+      .replace(/\$\$([\s\S]*?)\$\$/g, (_m, tex) => {
+        const decodedTex = tex
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&#39;/g, "'");
+        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: true });
+      })
+      .replace(/\$([^$\n]+)\$/g, (_m, tex) => {
+        const decodedTex = tex
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&#39;/g, "'");
+        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: false });
+      });
     const sanitized = DOMPurify.sanitize(withKatex);
     setHtml(sanitized);
   }, [content]);
+
   return <div className="markdown max-w-none" dangerouslySetInnerHTML={{ __html: html }} />;
-}
+};
 
 export default function HashPage() {
   const { toast } = useToast();
   const [content, setContent] = useState('');
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState('');
+  const [accessPassword, setAccessPassword] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const [editAccessPassword, setEditAccessPassword] = useState('');
+  const [editPasswordDialogOpen, setEditPasswordDialogOpen] = useState(false);
   const [mode, setMode] = useState('split');
   const textRef = useRef<HTMLTextAreaElement | null>(null);
   const previewRef = useRef<HTMLDivElement | null>(null);
@@ -62,8 +87,8 @@ export default function HashPage() {
 
   useEffect(() => {
     const h = hash;
-    if (!/^[a-f0-9]{64}$/i.test(h)) {
-      toast({ title: '错误', description: 'SHA256 标识格式不正确。' });
+    if (!/^[a-zA-Z0-9-_]{8}$/.test(h)) {
+      toast({ title: '错误', description: 'UID 格式不正确。' });
       return;
     }
     fetch(`${API_BASE_URL}/clipboards/view`, {
@@ -104,6 +129,74 @@ export default function HashPage() {
       })
       .catch(() => {
         toast({ title: '错误', description: '拉取失败' });
+      });
+  };
+
+  const handleDelete = () => {
+    const h = hash;
+    fetch(`${API_BASE_URL}/clipboards/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash: h, access: accessPassword }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        if (data === 1) {
+          toast({ title: '成功', description: '成功删除该内容。' });
+          setContent('');
+          setDeleteDialogOpen(false);
+        } else {
+          toast({ title: '失败', description: '删除失败，请检查安全密码是否正确。' });
+        }
+      })
+      .catch(() => {
+        toast({ title: '错误', description: '删除失败' });
+      });
+  };
+
+  const handleEdit = () => {
+    const h = hash;
+    fetch(`${API_BASE_URL}/clipboards/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash: h, access: editAccessPassword }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        if (data === 1) {
+          setEdit(true);
+          setEditPasswordDialogOpen(false);
+          toast({ title: '成功', description: '已进入编辑模式。' });
+        } else {
+          toast({ title: '失败', description: '安全密码错误。' });
+        }
+      })
+      .catch(() => {
+        toast({ title: '错误', description: '操作失败' });
+      });
+  };
+
+  const handleSave = () => {
+    const h = hash;
+    fetch(`${API_BASE_URL}/clipboards/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hash: h, content, access: editAccessPassword }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('fetch failed');
+        const data = await res.json();
+        if (data === 1) {
+          setEdit(false);
+          toast({ title: '成功', description: '内容已保存。' });
+        } else {
+          toast({ title: '失败', description: '保存失败。' });
+        }
+      })
+      .catch(() => {
+        toast({ title: '错误', description: '操作失败' });
       });
   };
 
@@ -160,13 +253,21 @@ export default function HashPage() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => copyText(content, '原文已复制到剪贴板！')}>复制原文</Button>
+              {edit ? (
+                <Button onClick={handleSave}><Save className="mr-2 size-4" />保存</Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => copyText(content, '原文已复制到剪贴板！')}>复制原文</Button>
+                  <Button variant="outline" onClick={() => setEditPasswordDialogOpen(true)}><Pencil className="mr-2 size-4" />修改内容</Button>
+                  <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}><Trash2 className="mr-2 size-4" />删除内容</Button>
+                </>
+              )}
             </div>
           </div>
           <div className="p-4 h-[calc(100vh-56px)]">
             <div className={`grid ${mode === 'split' ? 'md:grid-cols-2' : 'grid-cols-1'} gap-4 h-full`}>
               {(mode === 'raw' || mode === 'split') && (
-                <Textarea ref={textRef as unknown as React.Ref<HTMLTextAreaElement>} value={content} readOnly onScroll={(e) => { if (previewRef && previewRef.current) syncScroll(e.currentTarget, previewRef.current); }} className="w-full h-full resize-none" />
+                <Textarea ref={textRef as unknown as React.Ref<HTMLTextAreaElement>} value={content} readOnly={!edit} onChange={(e) => setContent(e.target.value)} onScroll={(e) => { if (previewRef && previewRef.current) syncScroll(e.currentTarget, previewRef.current); }} className="w-full h-full resize-none" />
               )}
               {(mode === 'rendered' || mode === 'split') && (
                 <div ref={previewRef as unknown as React.Ref<HTMLDivElement>} className="w-full h-full overflow-y-auto rounded-lg border p-4">
@@ -192,6 +293,36 @@ export default function HashPage() {
           </div>
           <DialogFooter>
             <Button onClick={submitPassword}>确认</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editPasswordDialogOpen} onOpenChange={setEditPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>修改内容</DialogTitle>
+          </DialogHeader>
+          <p>请输入安全密码以修改内容。</p>
+          <div className="flex flex-col gap-3 mt-4">
+            <Input value={editAccessPassword} onChange={(e) => setEditAccessPassword(e.target.value)} placeholder="请输入安全密码" />
+          </div>
+          <DialogFooter>
+            <Button onClick={handleEdit}>确定</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>删除内容</DialogTitle>
+          </DialogHeader>
+          <p>你确定要删除该内容吗？该操作无法撤回。</p>
+          <div className="flex flex-col gap-3 mt-4">
+            <Input value={accessPassword} onChange={(e) => setAccessPassword(e.target.value)} placeholder="请输入安全密码" />
+          </div>
+          <DialogFooter>
+            <Button variant="destructive" onClick={handleDelete}>确定</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

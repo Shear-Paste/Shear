@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
+const requestTimestamps = new Map();
+
 const storageDir = path.join(__dirname, "storage");
 if (!fs.existsSync(storageDir)) {
   fs.mkdirSync(storageDir, { recursive: true });
@@ -32,6 +34,23 @@ function sha256Hex(str) {
   return crypto.createHash("sha256").update(str, "utf8").digest("hex");
 }
 
+function generateUid() {
+  const files = fs.readdirSync(storageDir);
+  const uidNum = files.length + 1;
+  const binaryUid = uidNum.toString(2).padStart(48, '0');
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
+  let uid = '';
+  for (let i = 0; i < 48; i += 6) {
+    const chunk = binaryUid.substring(i, i + 6);
+    const charIndex = parseInt(chunk, 2);
+    uid += chars[charIndex];
+  }
+  const uidArray = uid.split('');
+  [uidArray[0], uidArray[7]] = [uidArray[7], uidArray[0]];
+  [uidArray[2], uidArray[5]] = [uidArray[5], uidArray[2]];
+  return uidArray.join('');
+}
+
 const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
@@ -54,46 +73,147 @@ const server = http.createServer(async (req, res) => {
       } catch (_) {
         return sendJson(res, 400, { error: "Invalid JSON" });
       }
-      const content = typeof payload.content === "string" ? payload.content : null;
-      const password = typeof payload.password === "string" ? payload.password : "";
-      if (!content) {
-        return sendJson(res, 400, { error: "Missing content" });
+      const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+      const now = Date.now();
+      const lastRequestTime = requestTimestamps.get(ip);
+
+      if (lastRequestTime && now - lastRequestTime < 60000) {
+        return sendJson(res, 429, { error: "Too many requests. Please wait a minute." });
       }
 
-      const textHash = sha256Hex(content);
-      const existingPlainPath = path.join(storageDir, `${textHash}.md`);
-      const existingMarkerPath = path.join(storageDir, `${textHash}.json`);
-      if (fs.existsSync(existingPlainPath) || fs.existsSync(existingMarkerPath)) {
-        return sendJson(res, 200, -1);
+      const { content, password, access } = payload;
+      if (!content || content.length < 20 || content.length > 262144) {
+        return sendJson(res, 400, { error: "Content length must be between 20 and 250000 characters" });
       }
-      const trimmedPwd = password.trim();
-      let storageHash = textHash;
-      let filePath;
-      if (trimmedPwd.length > 0) {
-        storageHash = sha256Hex(textHash + trimmedPwd);
-        filePath = path.join(storageDir, `${storageHash}.md`);
-        try {
-          fs.writeFileSync(filePath, content, { encoding: "utf8" });
-        } catch (e) {
-          return sendJson(res, 500, { error: "Store failed" });
-        }
-        const markerPath = path.join(storageDir, `${textHash}.json`);
-        try {
-          fs.writeFileSync(markerPath, JSON.stringify({ protected: true }), { encoding: "utf8" });
-        } catch (e) {
-          // If marker write fails, rollback content write to avoid orphaned secret content
-          try { fs.unlinkSync(filePath); } catch (_) {}
-          return sendJson(res, 500, { error: "Store failed" });
-        }
-      } else {
-        filePath = path.join(storageDir, `${storageHash}.md`);
-        try {
-          fs.writeFileSync(filePath, content, { encoding: "utf8" });
-        } catch (e) {
-          return sendJson(res, 500, { error: "Store failed" });
-        }
+
+      requestTimestamps.set(ip, now);
+
+      const uid = generateUid();
+      const filePath = path.join(storageDir, `${uid}.json`);
+
+      const data = {
+        content,
+        pwd: password ? sha256Hex(password) : "",
+        access: access ? sha256Hex(access) : "",
+      };
+
+      try {
+        fs.writeFileSync(filePath, JSON.stringify(data), { encoding: "utf8" });
+        return sendJson(res, 200, { hash: uid });
+      } catch (e) {
+        return sendJson(res, 500, { error: "Store failed" });
       }
-      return sendJson(res, 200, { hash: textHash });
+    } catch (e) {
+      return sendJson(res, 500, { error: "Server error" });
+    }
+  }
+
+  if (req.method === "POST" && pathname === "/api/clipboards/edit") {
+    try {
+      const raw = await readBody(req);
+      let payload;
+      try {
+        payload = JSON.parse(raw || "{}");
+      } catch (_) {
+        return sendJson(res, 400, { error: "Invalid JSON" });
+      }
+      const { hash, access } = payload;
+      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+        return sendJson(res, 400, { error: "Invalid hash" });
+      }
+
+      const filePath = path.join(storageDir, `${hash}.json`);
+      if (!fs.existsSync(filePath)) {
+        return sendJson(res, 404, { error: "Not found" });
+      }
+
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const data = JSON.parse(fileContent);
+
+        if (data.access && data.access === sha256Hex(access)) {
+          return sendJson(res, 200, 1); // Success
+        } else {
+          return sendJson(res, 200, 0); // Incorrect access password
+        }
+      } catch (e) {
+        return sendJson(res, 500, { error: "Edit failed" });
+      }
+    } catch (e) {
+      return sendJson(res, 500, { error: "Server error" });
+    }
+  }
+
+  if (req.method === "POST" && pathname === "/api/clipboards/save") {
+    try {
+      const raw = await readBody(req);
+      let payload;
+      try {
+        payload = JSON.parse(raw || "{}");
+      } catch (_) {
+        return sendJson(res, 400, { error: "Invalid JSON" });
+      }
+      const { hash, content, access } = payload;
+      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+        return sendJson(res, 400, { error: "Invalid hash" });
+      }
+
+      const filePath = path.join(storageDir, `${hash}.json`);
+      if (!fs.existsSync(filePath)) {
+        return sendJson(res, 404, { error: "Not found" });
+      }
+
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const data = JSON.parse(fileContent);
+
+        if (data.access && data.access === sha256Hex(access)) {
+          data.content = content;
+          fs.writeFileSync(filePath, JSON.stringify(data), { encoding: "utf8" });
+          return sendJson(res, 200, 1); // Success
+        } else {
+          return sendJson(res, 200, 0); // Incorrect access password
+        }
+      } catch (e) {
+        return sendJson(res, 500, { error: "Save failed" });
+      }
+    } catch (e) {
+      return sendJson(res, 500, { error: "Server error" });
+    }
+  }
+
+  if (req.method === "POST" && pathname === "/api/clipboards/delete") {
+    try {
+      const raw = await readBody(req);
+      let payload;
+      try {
+        payload = JSON.parse(raw || "{}");
+      } catch (_) {
+        return sendJson(res, 400, { error: "Invalid JSON" });
+      }
+      const { hash, access } = payload;
+      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+        return sendJson(res, 400, { error: "Invalid hash" });
+      }
+
+      const filePath = path.join(storageDir, `${hash}.json`);
+      if (!fs.existsSync(filePath)) {
+        return sendJson(res, 404, { error: "Not found" });
+      }
+
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const data = JSON.parse(fileContent);
+
+        if (data.access && data.access === sha256Hex(access)) {
+          fs.unlinkSync(filePath);
+          return sendJson(res, 200, 1); // Success
+        } else {
+          return sendJson(res, 200, 0); // Incorrect access password
+        }
+      } catch (e) {
+        return sendJson(res, 500, { error: "Delete failed" });
+      }
     } catch (e) {
       return sendJson(res, 500, { error: "Server error" });
     }
@@ -108,35 +228,30 @@ const server = http.createServer(async (req, res) => {
       } catch (_) {
         return sendJson(res, 400, { error: "Invalid JSON" });
       }
-      const hash = typeof payload.hash === "string" ? payload.hash : "";
-      const password = typeof payload.password === "string" ? payload.password : "";
-      if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) {
+      const { hash, password } = payload;
+      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
         return sendJson(res, 400, { error: "Invalid hash" });
       }
-      const plainPath = path.join(storageDir, `${hash}.md`);
-      if (fs.existsSync(plainPath)) {
-        try {
-          const content = fs.readFileSync(plainPath, "utf8");
-          return sendJson(res, 200, content);
-        } catch (e) {
-          return sendJson(res, 500, { error: "Read failed" });
-        }
+
+      const filePath = path.join(storageDir, `${hash}.json`);
+      if (!fs.existsSync(filePath)) {
+        return sendJson(res, 404, { error: "Not found" });
       }
-      const markerPath = path.join(storageDir, `${hash}.json`);
-      if (fs.existsSync(markerPath)) {
-        const composite = sha256Hex(hash + (password || ""));
-        const compositePath = path.join(storageDir, `${composite}.md`);
-        if (!fs.existsSync(compositePath)) {
-          return sendJson(res, 200, -1);
+
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const data = JSON.parse(fileContent);
+
+        if (data.pwd) {
+          if (!password || data.pwd !== sha256Hex(password)) {
+            return sendJson(res, 200, -1); // Password required or incorrect
+          }
         }
-        try {
-          const content = fs.readFileSync(compositePath, "utf8");
-          return sendJson(res, 200, content);
-        } catch (e) {
-          return sendJson(res, 500, { error: "Read failed" });
-        }
+
+        return sendJson(res, 200, { content: data.content });
+      } catch (e) {
+        return sendJson(res, 500, { error: "Read failed" });
       }
-      return sendJson(res, 404, { error: "Not found" });
     } catch (e) {
       return sendJson(res, 500, { error: "Server error" });
     }
@@ -144,16 +259,17 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && pathname.startsWith("/api/clipboards/")) {
     const hash = pathname.split("/").pop();
-    if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) {
+    if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
       return sendJson(res, 400, { error: "Invalid hash" });
     }
-    const filePath = path.join(storageDir, `${hash}.md`);
+    const filePath = path.join(storageDir, `${hash}.json`);
     if (!fs.existsSync(filePath)) {
       return sendJson(res, 404, { error: "Not found" });
     }
     try {
-      const content = fs.readFileSync(filePath, "utf8");
-      return sendJson(res, 200, { content });
+      const fileContent = fs.readFileSync(filePath, "utf8");
+      const data = JSON.parse(fileContent);
+      return sendJson(res, 200, { content: data.content });
     } catch (e) {
       return sendJson(res, 500, { error: "Read failed" });
     }

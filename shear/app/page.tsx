@@ -33,8 +33,8 @@ renderer.code = ({ text, lang }) => {
 
 marked.setOptions({
   gfm: true,
-  breaks: true,
-  renderer: renderer,
+  breaks: false,
+  renderer: renderer
 });
 
 const MarkdownViewer = ({ content }: { content: string }) => {
@@ -44,8 +44,26 @@ const MarkdownViewer = ({ content }: { content: string }) => {
     const src = typeof content === 'string' ? content : '';
     const rendered = marked.parse(src) as string;
     const withKatex = rendered
-      .replace(/\$\$([\s\S]*?)\$\$/g, (_m, tex) => katex.renderToString(tex, { throwOnError: false, displayMode: true }))
-      .replace(/\$([^$\n]+)\$/g, (_m, tex) => katex.renderToString(tex, { throwOnError: false, displayMode: false }));
+      .replace(/\$\$([\s\S]*?)\$\$/g, (_m, tex) => {
+        const decodedTex = tex
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&#39;/g, "'");
+        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: true });
+      })
+      .replace(/\$([^$\n]+)\$/g, (_m, tex) => {
+        const decodedTex = tex
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&#39;/g, "'");
+        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: false });
+      });
     const sanitized = DOMPurify.sanitize(withKatex);
     setHtml(sanitized);
   }, [content]);
@@ -64,6 +82,7 @@ export default function Home() {
   const [fetchedContent, setFetchedContent] = useState('');
   const [viewMode, setViewMode] = useState('split');
   const [createPassword, setCreatePassword] = useState('');
+  const [createAccessPassword, setCreateAccessPassword] = useState('');
   const router = useRouter();
   const [createFullscreen, setCreateFullscreen] = useState(false);
   const [viewFullscreen, setViewFullscreen] = useState(false);
@@ -81,13 +100,20 @@ export default function Home() {
   };
 
   const handleSave = async () => {
+    if (!createAccessPassword) {
+      toast({ title: '错误', description: '安全密码是必填项。' });
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/clipboards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: mdInput, password: createPassword }),
+        body: JSON.stringify({ content: mdInput, password: createPassword, access: createAccessPassword }),
       });
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to save');
+      }
       const data = await res.json();
       if (data === -1) {
         toast({ title: '提示', description: '该内容已被储存过。' });
@@ -98,7 +124,7 @@ export default function Home() {
       setCreateFullscreen(false);
       setHashDialogOpen(true);
     } catch (error) {
-      toast({ title: '错误', description: '保存失败' });
+      toast({ title: '错误', description: error.message });
     }
   };
 
@@ -179,6 +205,10 @@ export default function Home() {
               <div className="relative w-64">
                 <Lock className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <Input value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} placeholder="留空表示不设密码" className="pl-8" />
+              </div>
+              <div className="relative w-64">
+                <Lock className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input value={createAccessPassword} onChange={(e) => setCreateAccessPassword(e.target.value)} placeholder="安全密码(必填)" className="pl-8" />
               </div>
             </div>
             <div className="flex items-center gap-2">
