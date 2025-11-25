@@ -125,9 +125,47 @@ export default function Home() {
   };
 
   const copyToClipboard = (text: string, message: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast({ title: '成功', description: message });
-    });
+    // Try modern clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        toast({ title: '成功', description: message });
+      }).catch(() => {
+        // Fallback if clipboard API fails
+        fallbackCopyToClipboard(text, message);
+      });
+    } else {
+      // Use fallback method
+      fallbackCopyToClipboard(text, message);
+    }
+  };
+
+  const fallbackCopyToClipboard = (text: string, message: string) => {
+    // Create a temporary textarea element
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    
+    try {
+      // Focus and select the text
+      textArea.focus();
+      textArea.select();
+      
+      // Try to copy using execCommand
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        toast({ title: '成功', description: message });
+      } else {
+        toast({ title: '失败', description: '复制失败，请手动选择并复制' });
+      }
+    } catch (err) {
+      document.body.removeChild(textArea);
+      toast({ title: '失败', description: '复制失败，请手动选择并复制' });
+    }
   };
 
   return (
@@ -189,7 +227,7 @@ export default function Home() {
           </DialogHeader>
           <div className="flex items-center gap-2">
             <Input readOnly value={hashValue} />
-            <Button size="icon" variant="outline" aria-label="复制 Hash" onClick={() => copyToClipboard(hashValue, 'Hash已复制到剪贴板！')}>
+            <Button size="icon" variant="outline" aria-label="复制 Hash" onClick={() => copyToClipboard(hashValue, 'Hash 已复制到剪贴板！')}>
               <Copy className="size-4" />
             </Button>
           </div>
