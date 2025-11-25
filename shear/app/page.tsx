@@ -60,6 +60,7 @@ export default function Home() {
   const [mdInput, setMdInput] = useState('');
   const [hashValue, setHashValue] = useState('');
   const [hashInput, setHashInput] = useState('');
+  const [fullUrl, setFullUrl] = useState('');
   const [fetchedContent, setFetchedContent] = useState('');
   const [viewMode, setViewMode] = useState('split');
   const [createPassword, setCreatePassword] = useState('');
@@ -93,6 +94,7 @@ export default function Home() {
         return;
       }
       setHashValue(data.hash);
+      setFullUrl(`${window.location.origin}/${data.hash}`);
       setCreateFullscreen(false);
       setHashDialogOpen(true);
     } catch (error) {
@@ -208,6 +210,12 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <Input readOnly value={hashValue} />
             <Button size="icon" variant="outline" aria-label="复制 Hash" onClick={() => copyToClipboard(hashValue, 'Hash 已复制到剪贴板！')}>
+              <Copy className="size-4" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <Input readOnly value={fullUrl} />
+            <Button size="icon" variant="outline" aria-label="复制链接" onClick={() => copyToClipboard(fullUrl, '链接已复制到剪贴板！')}>
               <Copy className="size-4" />
             </Button>
           </div>
