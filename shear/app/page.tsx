@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -62,7 +63,7 @@ export default function Home() {
   const [fetchedContent, setFetchedContent] = useState('');
   const [viewMode, setViewMode] = useState('split');
   const [createPassword, setCreatePassword] = useState('');
-  const [viewPassword, setViewPassword] = useState('');
+  const router = useRouter();
   const [createFullscreen, setCreateFullscreen] = useState(false);
   const [viewFullscreen, setViewFullscreen] = useState(false);
   const [createViewMode, setCreateViewMode] = useState('split');
@@ -99,29 +100,13 @@ export default function Home() {
     }
   };
 
-  const handleFetch = async () => {
+  const handleFetch = () => {
     if (!/^[a-f0-9]{64}$/i.test(hashInput)) {
       toast({ title: '错误', description: 'SHA256 标识格式不正确。' });
       return;
     }
-    try {
-      const res = await fetch(`${API_BASE_URL}/clipboards/view`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hash: hashInput, password: viewPassword }),
-      });
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
-      if (data === -1) {
-        toast({ title: '提示', description: '密码错误，访问被拒绝。' });
-        return;
-      }
-      setFetchedContent(typeof data === 'string' ? data : data.content);
-      setViewFullscreen(true);
-      setViewOpen(false);
-    } catch (error) {
-      toast({ title: '错误', description: '拉取失败' });
-    }
+    router.push(`/${hashInput}`);
+    setViewOpen(false);
   };
 
   const copyToClipboard = (text: string, message: string) => {
@@ -140,43 +125,26 @@ export default function Home() {
   };
 
   const fallbackCopyToClipboard = (text: string, message: string) => {
-    const tempDiv = document.createElement('div');
-    tempDiv.textContent = text;
-    tempDiv.style.position = 'fixed';
-    tempDiv.style.top = '50%';
-    tempDiv.style.left = '50%';
-    tempDiv.style.transform = 'translate(-50%, -50%)';
-    tempDiv.style.background = 'white';
-    tempDiv.style.border = '2px solid #ccc';
-    tempDiv.style.padding = '20px';
-    tempDiv.style.zIndex = '9999';
-    tempDiv.style.maxWidth = '80%';
-    tempDiv.style.maxHeight = '80%';
-    tempDiv.style.overflow = 'auto';
-    tempDiv.style.whiteSpace = 'pre-wrap';
-    tempDiv.contentEditable = 'true';
-    
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '关闭';
-    closeButton.style.position = 'absolute';
-    closeButton.style.top = '10px';
-    closeButton.style.right = '10px';
-    closeButton.style.padding = '5px 10px';
-    closeButton.style.cursor = 'pointer';
-    
-    closeButton.onclick = () => {
-      document.body.removeChild(tempDiv);
-    };
-    
-    tempDiv.appendChild(closeButton);
-    document.body.appendChild(tempDiv);
-    
-    const range = document.createRange();
-    range.selectNodeContents(tempDiv);
-    const selection = window.getSelection();
-    if (selection) {
-      selection.removeAllRanges();
-      selection.addRange(range);
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    textarea.setAttribute('readonly', '');
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    try {
+      const ok = document.execCommand('copy');
+      if (ok) {
+        toast({ title: '成功', description: message });
+      } else {
+        toast({ title: '错误', description: '复制失败' });
+      }
+    } catch {
+      toast({ title: '错误', description: '复制失败' });
+    } finally {
+      document.body.removeChild(textarea);
     }
   };
 
@@ -254,10 +222,6 @@ export default function Home() {
             <div className="relative">
               <Hash className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input value={hashInput} onChange={(e) => setHashInput(e.target.value)} placeholder="输入 SHA256 标识" className="pl-8" />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input value={viewPassword} onChange={(e) => setViewPassword(e.target.value)} placeholder="访问密码（留空表示无）" className="pl-8" />
             </div>
           </div>
           <DialogFooter>
