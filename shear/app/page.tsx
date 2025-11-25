@@ -140,31 +140,58 @@ export default function Home() {
   };
 
   const fallbackCopyToClipboard = (text: string, message: string) => {
-    // Create a temporary textarea element
     const textArea = document.createElement('textarea');
     textArea.value = text;
     textArea.style.position = 'fixed';
     textArea.style.left = '-999999px';
     textArea.style.top = '-999999px';
+    textArea.style.opacity = '0';
+    textArea.style.pointerEvents = 'none';
+    textArea.readOnly = true;
+    textArea.contentEditable = 'true';
     document.body.appendChild(textArea);
     
     try {
-      // Focus and select the text
       textArea.focus();
       textArea.select();
+      textArea.setSelectionRange(0, text.length);
       
-      // Try to copy using execCommand
       const successful = document.execCommand('copy');
       document.body.removeChild(textArea);
       
       if (successful) {
         toast({ title: '成功', description: message });
-      } else {
-        toast({ title: '失败', description: '复制失败，请手动选择并复制' });
+        return;
       }
     } catch (err) {
       document.body.removeChild(textArea);
-      toast({ title: '失败', description: '复制失败，请手动选择并复制' });
+    }
+    
+    const input = document.createElement('input');
+    input.value = text;
+    input.style.position = 'fixed';
+    input.style.left = '-999999px';
+    input.style.top = '-999999px';
+    input.style.opacity = '0';
+    input.style.pointerEvents = 'none';
+    input.readOnly = true;
+    input.contentEditable = 'true';
+    document.body.appendChild(input);
+    
+    try {
+      input.focus();
+      input.select();
+      input.setSelectionRange(0, text.length);
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(input);
+      
+      if (successful) {
+        toast({ title: '成功', description: message });
+        return;
+      }
+    } catch (err) {
+      document.body.removeChild(input);
     }
   };
 
