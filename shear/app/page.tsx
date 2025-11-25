@@ -140,58 +140,43 @@ export default function Home() {
   };
 
   const fallbackCopyToClipboard = (text: string, message: string) => {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-999999px';
-    textArea.style.top = '-999999px';
-    textArea.style.opacity = '0';
-    textArea.style.pointerEvents = 'none';
-    textArea.readOnly = true;
-    textArea.contentEditable = 'true';
-    document.body.appendChild(textArea);
+    const tempDiv = document.createElement('div');
+    tempDiv.textContent = text;
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.top = '50%';
+    tempDiv.style.left = '50%';
+    tempDiv.style.transform = 'translate(-50%, -50%)';
+    tempDiv.style.background = 'white';
+    tempDiv.style.border = '2px solid #ccc';
+    tempDiv.style.padding = '20px';
+    tempDiv.style.zIndex = '9999';
+    tempDiv.style.maxWidth = '80%';
+    tempDiv.style.maxHeight = '80%';
+    tempDiv.style.overflow = 'auto';
+    tempDiv.style.whiteSpace = 'pre-wrap';
+    tempDiv.contentEditable = 'true';
     
-    try {
-      textArea.focus();
-      textArea.select();
-      textArea.setSelectionRange(0, text.length);
-      
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textArea);
-      
-      if (successful) {
-        toast({ title: '成功', description: message });
-        return;
-      }
-    } catch (err) {
-      document.body.removeChild(textArea);
-    }
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '关闭';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '10px';
+    closeButton.style.right = '10px';
+    closeButton.style.padding = '5px 10px';
+    closeButton.style.cursor = 'pointer';
     
-    const input = document.createElement('input');
-    input.value = text;
-    input.style.position = 'fixed';
-    input.style.left = '-999999px';
-    input.style.top = '-999999px';
-    input.style.opacity = '0';
-    input.style.pointerEvents = 'none';
-    input.readOnly = true;
-    input.contentEditable = 'true';
-    document.body.appendChild(input);
+    closeButton.onclick = () => {
+      document.body.removeChild(tempDiv);
+    };
     
-    try {
-      input.focus();
-      input.select();
-      input.setSelectionRange(0, text.length);
-      
-      const successful = document.execCommand('copy');
-      document.body.removeChild(input);
-      
-      if (successful) {
-        toast({ title: '成功', description: message });
-        return;
-      }
-    } catch (err) {
-      document.body.removeChild(input);
+    tempDiv.appendChild(closeButton);
+    document.body.appendChild(tempDiv);
+    
+    const range = document.createRange();
+    range.selectNodeContents(tempDiv);
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
     }
   };
 
