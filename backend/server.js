@@ -295,11 +295,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && pathname.startsWith("/api/clipboards/")) {
-    const hash = pathname.split("/").pop();
-    if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+    const uid = pathname.split("/").pop();
+    if (!uid || !/^[a-zA-Z0-9-_]{8}$/.test(uid)) {
       return sendJson(res, 400, { error: "Invalid hash" });
     }
-    const filePath = path.join(storageDir, `${hash}.json`);
+    const filePath = path.join(storageDir, `${uid}.json`);
     if (!fs.existsSync(filePath)) {
       return sendJson(res, 404, { error: "Not found" });
     }
@@ -309,6 +309,15 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { content: data.content });
     } catch (e) {
       return sendJson(res, 500, { error: "Read failed" });
+    }
+  }
+
+  if (req.method === "GET" && pathname === "/api/stats") {
+    try {
+      const files = fs.readdirSync(storageDir).filter(f => f !== "unused_ids.json");
+      return sendJson(res, 200, { count: files.length });
+    } catch (e) {
+      return sendJson(res, 500, { error: "Stats failed" });
     }
   }
 

@@ -98,10 +98,18 @@ export default function Home() {
   const [createFullscreen, setCreateFullscreen] = useState(false);
   const [viewFullscreen, setViewFullscreen] = useState(false);
   const [createViewMode, setCreateViewMode] = useState('split');
+  const [stats, setStats] = useState<number | null>(null);
   const createTextRef = useRef<HTMLTextAreaElement | null>(null);
   const createPreviewRef = useRef<HTMLDivElement | null>(null);
   const viewTextRef = useRef<HTMLTextAreaElement | null>(null);
   const viewPreviewRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/stats`)
+      .then(res => res.json())
+      .then(data => setStats(data.count))
+      .catch(console.error);
+  }, []);
 
   const syncScroll = (source: HTMLElement, target: HTMLElement) => {
     const sMax = (source.scrollHeight - source.clientHeight) || 1;
@@ -184,15 +192,25 @@ export default function Home() {
   };
 
   return (
-    <main className="container mx-auto px-6 pt-24 flex flex-col items-center justify-center min-h-screen">
-      <h1 className="font-display text-6xl sm:text-7xl font-extrabold tracking-tight bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-800 bg-clip-text text-transparent select-none text-center">
-        Shear
-      </h1>
-      <p className="mt-4 text-center text-muted-foreground">Markdown 公共剪贴板</p>
+    <main className="container mx-auto px-6 flex flex-col items-center justify-center min-h-screen relative">
+      <div className="flex flex-col items-center justify-center w-full max-w-4xl z-10">
+        <h1 className="font-display text-6xl sm:text-7xl font-extrabold tracking-tight bg-gradient-to-r from-blue-500 via-indigo-600 to-blue-800 bg-clip-text text-transparent select-none text-center">
+          Shear
+        </h1>
+        <p className="mt-8 text-center text-muted-foreground">Markdown 公共剪贴板</p>
+        
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-16">
+          <Button onClick={() => setCreateFullscreen(true)} size="lg" className="transition-all duration-300 ease-in-out hover:scale-105"><Plus className="mr-2 size-4" />新建剪贴</Button>
+          <Button onClick={() => setViewOpen(true)} size="lg" variant="outline" className="transition-all duration-300 ease-in-out hover:scale-105"><Eye className="mr-2 size-4" />查看剪贴</Button>
+        </div>
+      </div>
 
-      <div className="mt-20 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <Button onClick={() => setCreateFullscreen(true)} size="lg" className="transition-all duration-300 ease-in-out hover:scale-105"><Plus className="mr-2 size-4" />新建剪贴</Button>
-        <Button onClick={() => setViewOpen(true)} size="lg" variant="outline" className="transition-all duration-300 ease-in-out hover:scale-105"><Eye className="mr-2 size-4" />查看剪贴</Button>
+      <div className="absolute bottom-[25%] left-0 w-full flex justify-center pointer-events-none">
+        {stats !== null && (
+          <p className="text-xs text-muted-foreground/60 tracking-wider">
+            当前累计存储 {stats} 个剪贴板
+          </p>
+        )}
       </div>
 
       {createFullscreen && (
