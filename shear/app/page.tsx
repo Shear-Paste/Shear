@@ -34,8 +34,8 @@ renderer.code = ({ text, lang }) => {
 const latexExtension = {
   name: 'latex',
   level: 'inline',
-  start(src) { return src.match(/\$/)?.index; },
-  tokenizer(src, tokens) {
+  start(src : string) { return src.match(/\$/)?.index; },
+  tokenizer(src : string, tokens : any) {
     const displayRule = /^\$\$([\s\S]*?)\$\$/;
     const inlineRule = /^\$([^$\n]+)\$/;
     let match;
@@ -56,7 +56,7 @@ const latexExtension = {
       };
     }
   },
-  renderer(token) {
+  renderer(token: any) {
     return katex.renderToString(token.text, { throwOnError: false, displayMode: token.displayMode });
   }
 };
@@ -139,7 +139,7 @@ export default function Home() {
       setCreateFullscreen(false);
       setHashDialogOpen(true);
     } catch (error) {
-      toast({ title: '错误', description: error.message });
+      toast({ title: '错误', description: (error as Error).message });
     }
   };
 
