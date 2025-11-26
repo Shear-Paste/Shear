@@ -57,7 +57,7 @@ const latexExtension = {
 
 marked.use({ extensions: [latexExtension] });
 
-marked.setOptions({ gfm: true, breaks: false, renderer, mangle: false, headerIds: false });
+marked.setOptions({ gfm: true, breaks: false, renderer });
 
 const MarkdownViewer = ({ content }: { content: string }) => {
   const [html, setHtml] = useState('');
