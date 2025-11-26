@@ -31,6 +31,38 @@ renderer.code = ({ text, lang }) => {
   return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
 };
 
+const latexExtension = {
+  name: 'latex',
+  level: 'inline',
+  start(src) { return src.match(/\$/)?.index; },
+  tokenizer(src, tokens) {
+    const displayRule = /^\$\$([\s\S]*?)\$\$/;
+    const inlineRule = /^\$([^$\n]+)\$/;
+    let match;
+    if (match = displayRule.exec(src)) {
+      return {
+        type: 'latex',
+        raw: match[0],
+        text: match[1],
+        displayMode: true
+      };
+    }
+    if (match = inlineRule.exec(src)) {
+      return {
+        type: 'latex',
+        raw: match[0],
+        text: match[1],
+        displayMode: false
+      };
+    }
+  },
+  renderer(token) {
+    return katex.renderToString(token.text, { throwOnError: false, displayMode: token.displayMode });
+  }
+};
+
+marked.use({ extensions: [latexExtension] });
+
 marked.setOptions({
   gfm: true,
   breaks: false,
@@ -43,28 +75,7 @@ const MarkdownViewer = ({ content }: { content: string }) => {
   useEffect(() => {
     const src = typeof content === 'string' ? content : '';
     const rendered = marked.parse(src) as string;
-    const withKatex = rendered
-      .replace(/\$\$([\s\S]*?)\$\$/g, (_m, tex) => {
-        const decodedTex = tex
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&apos;/g, "'")
-          .replace(/&#39;/g, "'");
-        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: true });
-      })
-      .replace(/\$([^$\n]+)\$/g, (_m, tex) => {
-        const decodedTex = tex
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&apos;/g, "'")
-          .replace(/&#39;/g, "'");
-        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: false });
-      });
-    const sanitized = DOMPurify.sanitize(withKatex);
+    const sanitized = DOMPurify.sanitize(rendered);
     setHtml(sanitized);
   }, [content]);
 
@@ -115,10 +126,6 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to save');
       }
       const data = await res.json();
-      if (data === -1) {
-        toast({ title: '提示', description: '该内容已被储存过。' });
-        return;
-      }
       setHashValue(data.hash);
       setFullUrl(`${window.location.origin}/${data.hash}`);
       setCreateFullscreen(false);
@@ -129,8 +136,8 @@ export default function Home() {
   };
 
   const handleFetch = () => {
-    if (!/^[a-f0-9]{64}$/i.test(hashInput)) {
-      toast({ title: '错误', description: 'SHA256 标识格式不正确。' });
+    if (!/^[a-zA-Z0-9-_]{8}$/i.test(hashInput)) {
+      toast({ title: '错误', description: 'UID 格式不正确。' });
       return;
     }
     router.push(`/${hashInput}`);
@@ -235,7 +242,7 @@ export default function Home() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>内容已保存</DialogTitle>
-            <DialogDescription>内容标识（SHA256）</DialogDescription>
+            <DialogDescription>内容标识（UID）</DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
             <Input readOnly value={hashValue} />
@@ -259,7 +266,7 @@ export default function Home() {
           <div className="flex flex-col gap-3">
             <div className="relative">
               <Hash className="absolute left-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input value={hashInput} onChange={(e) => setHashInput(e.target.value)} placeholder="输入 SHA256 标识" className="pl-8" />
+              <Input value={hashInput} onChange={(e) => setHashInput(e.target.value)} placeholder="输入 UID 标识" className="pl-8" />
             </div>
           </div>
           <DialogFooter>

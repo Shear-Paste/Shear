@@ -25,6 +25,38 @@ renderer.code = ({ text, lang }) => {
   return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
 };
 
+const latexExtension = {
+  name: 'latex',
+  level: 'inline',
+  start(src: string) { return src.match(/\$/)?.index; },
+  tokenizer(src: string, tokens: any) {
+    const displayRule = /^\$\$([\s\S]*?)\$\$/;
+    const inlineRule = /^\$([^$\n]+)\$/;
+    let match;
+    if (match = displayRule.exec(src)) {
+      return {
+        type: 'latex',
+        raw: match[0],
+        text: match[1],
+        displayMode: true
+      };
+    }
+    if (match = inlineRule.exec(src)) {
+      return {
+        type: 'latex',
+        raw: match[0],
+        text: match[1],
+        displayMode: false
+      };
+    }
+  },
+  renderer(token: any) {
+    return katex.renderToString(token.text, { throwOnError: false, displayMode: token.displayMode });
+  }
+};
+
+marked.use({ extensions: [latexExtension] });
+
 marked.setOptions({ gfm: true, breaks: false, renderer, mangle: false, headerIds: false });
 
 const MarkdownViewer = ({ content }: { content: string }) => {
@@ -33,28 +65,7 @@ const MarkdownViewer = ({ content }: { content: string }) => {
   useEffect(() => {
     const src = typeof content === 'string' ? content : '';
     const rendered = marked.parse(src) as string;
-    const withKatex = rendered
-      .replace(/\$\$([\s\S]*?)\$\$/g, (_m, tex) => {
-        const decodedTex = tex
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&apos;/g, "'")
-          .replace(/&#39;/g, "'");
-        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: true });
-      })
-      .replace(/\$([^$\n]+)\$/g, (_m, tex) => {
-        const decodedTex = tex
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&apos;/g, "'")
-          .replace(/&#39;/g, "'");
-        return katex.renderToString(decodedTex, { throwOnError: false, displayMode: false });
-      });
-    const sanitized = DOMPurify.sanitize(withKatex);
+    const sanitized = DOMPurify.sanitize(rendered);
     setHtml(sanitized);
   }, [content]);
 

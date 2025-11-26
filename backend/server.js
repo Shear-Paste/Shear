@@ -10,6 +10,44 @@ if (!fs.existsSync(storageDir)) {
   fs.mkdirSync(storageDir, { recursive: true });
 }
 
+const unusedIdsPath = path.join(storageDir, "unused_ids.json");
+
+function getUnusedId() {
+  if (fs.existsSync(unusedIdsPath)) {
+    try {
+      const content = fs.readFileSync(unusedIdsPath, "utf8");
+      const ids = JSON.parse(content);
+      if (Array.isArray(ids) && ids.length > 0) {
+        const id = ids.shift(); // Use the first one
+        fs.writeFileSync(unusedIdsPath, JSON.stringify(ids), "utf8");
+        return id;
+      }
+    } catch (e) {
+      console.error("Failed to read unused IDs", e);
+    }
+  }
+  return null;
+}
+
+function recycleId(id) {
+  let ids = [];
+  if (fs.existsSync(unusedIdsPath)) {
+    try {
+      const content = fs.readFileSync(unusedIdsPath, "utf8");
+      ids = JSON.parse(content);
+      if (!Array.isArray(ids)) ids = [];
+    } catch (e) {
+      ids = [];
+    }
+  }
+  ids.push(id);
+  try {
+    fs.writeFileSync(unusedIdsPath, JSON.stringify(ids), "utf8");
+  } catch (e) {
+    console.error("Failed to save unused ID", e);
+  }
+}
+
 function sendJson(res, status, data) {
   const body = JSON.stringify(data);
   res.writeHead(status, {
@@ -35,8 +73,8 @@ function sha256Hex(str) {
 }
 
 function generateUid() {
-  const files = fs.readdirSync(storageDir);
-  const uidNum = files.length + 1;
+  const files = fs.readdirSync(storageDir).filter(f => f !== "unused_ids.json");
+  const uidNum = files.length;
   const binaryUid = uidNum.toString(2).padStart(48, '0');
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_';
   let uid = '';
@@ -46,8 +84,6 @@ function generateUid() {
     uid += chars[charIndex];
   }
   const uidArray = uid.split('');
-  [uidArray[0], uidArray[7]] = [uidArray[7], uidArray[0]];
-  [uidArray[2], uidArray[5]] = [uidArray[5], uidArray[2]];
   return uidArray.join('');
 }
 
@@ -82,13 +118,13 @@ const server = http.createServer(async (req, res) => {
       }
 
       const { content, password, access } = payload;
-      if (!content || content.length < 20 || content.length > 262144) {
-        return sendJson(res, 400, { error: "Content length must be between 20 and 250000 characters" });
+      if (!content || content.length < 20 || content.length > 100000) {
+        return sendJson(res, 400, { error: "Content length must be between 20 and 100000 characters" });
       }
 
       requestTimestamps.set(ip, now);
 
-      const uid = generateUid();
+      const uid = getUnusedId() || generateUid();
       const filePath = path.join(storageDir, `${uid}.json`);
 
       const data = {
@@ -207,6 +243,7 @@ const server = http.createServer(async (req, res) => {
 
         if (data.access && data.access === sha256Hex(access)) {
           fs.unlinkSync(filePath);
+          recycleId(hash);
           return sendJson(res, 200, 1); // Success
         } else {
           return sendJson(res, 200, 0); // Incorrect access password
