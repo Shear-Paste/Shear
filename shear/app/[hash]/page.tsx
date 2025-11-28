@@ -75,6 +75,7 @@ const MarkdownViewer = ({ content }: { content: string }) => {
 export default function HashPage() {
   const { toast } = useToast();
   const [content, setContent] = useState('');
+  const [isLoaded, setIsLoaded] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [accessPassword, setAccessPassword] = useState('');
@@ -115,6 +116,7 @@ export default function HashPage() {
           return;
         }
         setContent(typeof data === 'string' ? data : data.content);
+        setIsLoaded(true);
       })
       .catch(() => {
         toast({ title: '错误', description: '拉取失败' });
@@ -136,6 +138,7 @@ export default function HashPage() {
           return;
         }
         setContent(typeof data === 'string' ? data : data.content);
+        setIsLoaded(true);
         setPasswordDialogOpen(false);
       })
       .catch(() => {
@@ -156,6 +159,7 @@ export default function HashPage() {
         if (data === 1) {
           toast({ title: '成功', description: '成功删除该内容。' });
           setContent('');
+          setIsLoaded(false);
           setDeleteDialogOpen(false);
         } else {
           toast({ title: '失败', description: '删除失败，请检查安全密码是否正确。' });
@@ -248,7 +252,7 @@ export default function HashPage() {
       </h1>
       <p className="mt-4 text-center text-muted-foreground">Markdown 公共剪贴板</p>
 
-      {content && (
+      {isLoaded && (
         <div className="fixed inset-0 z-50 bg-background">
           <div className="flex items-center justify-between px-4 h-14 border-b">
             <div className="flex items-center gap-2">
