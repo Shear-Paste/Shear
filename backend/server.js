@@ -118,8 +118,8 @@ const server = http.createServer(async (req, res) => {
       }
 
       const { content, password, access } = payload;
-      if (!content || content.length < 20 || content.length > 100000) {
-        return sendJson(res, 400, { error: "Content length must be between 20 and 100000 characters" });
+      if (content.length > 100000 || content.trim().length === 0) {
+        return sendJson(res, 400, { error: "Content length must be less than 100000 characters or not empty!" });
       }
 
       requestTimestamps.set(ip, now);
@@ -190,6 +190,9 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: "Invalid JSON" });
       }
       const { hash, content, access } = payload;
+      if (content.length > 100000 || content.trim().length === 0) {
+        return sendJson(res, 400, { error: "Content length must be less than 100000 characters or not empty!" });
+      }
       if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
         return sendJson(res, 400, { error: "Invalid hash" });
       }
