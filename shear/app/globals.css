@@ -187,6 +187,22 @@
   background-color: var(--muted);
 }
 
+.markdown a {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+.markdown a:hover {
+  text-decoration: underline;
+  color: #2563eb;
+}
+.dark .markdown a {
+  color: #60a5fa;
+}
+.dark .markdown a:hover {
+  color: #93c5fd;
+}
+
 
 details.admonition {
   border: 1px solid var(--border);
