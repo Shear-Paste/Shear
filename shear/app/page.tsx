@@ -90,16 +90,16 @@ export default function Home() {
   };
 
   const copyToClipboard = (text: string, message: string) => {
-    // Try modern clipboard API first
+    
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
         toast({ title: '成功', description: message });
       }).catch(() => {
-        // Fallback if clipboard API fails
+        
         fallbackCopyToClipboard(text, message);
       });
     } else {
-      // Use fallback method
+      
       fallbackCopyToClipboard(text, message);
     }
   };

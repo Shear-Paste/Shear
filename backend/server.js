@@ -18,7 +18,7 @@ function getUnusedId() {
       const content = fs.readFileSync(unusedIdsPath, "utf8");
       const ids = JSON.parse(content);
       if (Array.isArray(ids) && ids.length > 0) {
-        const id = ids.shift(); // Use the first one
+        const id = ids.shift(); 
         fs.writeFileSync(unusedIdsPath, JSON.stringify(ids), "utf8");
         return id;
       }
@@ -168,9 +168,9 @@ const server = http.createServer(async (req, res) => {
         const data = JSON.parse(fileContent);
 
         if (data.access && data.access === sha256Hex(access)) {
-          return sendJson(res, 200, 1); // Success
+          return sendJson(res, 200, 1); 
         } else {
-          return sendJson(res, 200, 0); // Incorrect access password
+          return sendJson(res, 200, 0); 
         }
       } catch (e) {
         return sendJson(res, 500, { error: "Edit failed" });
@@ -209,9 +209,9 @@ const server = http.createServer(async (req, res) => {
         if (data.access && data.access === sha256Hex(access)) {
           data.content = content;
           fs.writeFileSync(filePath, JSON.stringify(data), { encoding: "utf8" });
-          return sendJson(res, 200, 1); // Success
+          return sendJson(res, 200, 1); 
         } else {
-          return sendJson(res, 200, 0); // Incorrect access password
+          return sendJson(res, 200, 0); 
         }
       } catch (e) {
         return sendJson(res, 500, { error: "Save failed" });
@@ -247,9 +247,9 @@ const server = http.createServer(async (req, res) => {
         if (data.access && data.access === sha256Hex(access)) {
           fs.unlinkSync(filePath);
           recycleId(hash);
-          return sendJson(res, 200, 1); // Success
+          return sendJson(res, 200, 1); 
         } else {
-          return sendJson(res, 200, 0); // Incorrect access password
+          return sendJson(res, 200, 0); 
         }
       } catch (e) {
         return sendJson(res, 500, { error: "Delete failed" });
@@ -284,7 +284,7 @@ const server = http.createServer(async (req, res) => {
 
         if (data.pwd) {
           if (!password || data.pwd !== sha256Hex(password)) {
-            return sendJson(res, 200, -1); // Password required or incorrect
+            return sendJson(res, 200, -1); 
           }
         }
 

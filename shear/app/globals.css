@@ -122,7 +122,7 @@
   }
 }
 
-/* Markdown typography */
+
 .markdown {
   line-height: 1.7;
 }
@@ -185,5 +185,144 @@
 .markdown th {
   font-weight: 600;
   background-color: var(--muted);
+}
+
+
+details.admonition {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  overflow: hidden;
+  background-color: var(--card);
+}
+
+summary.admonition-title {
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; 
+  gap: 0.5rem;
+}
+
+summary.admonition-title .admonition-chevron {
+  transition: transform 0.2s ease;
+  margin-left: auto; 
+}
+
+details.admonition[open] summary.admonition-title .admonition-chevron {
+  transform: rotate(90deg);
+}
+
+summary.admonition-title::-webkit-details-marker {
+  display: none;
+}
+
+.admonition-content {
+  padding: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+
+details.admonition-info { border-color: #3b82f6; }
+details.admonition-info summary { background-color: #eff6ff; color: #1e40af; }
+.dark details.admonition-info summary { background-color: #172554; color: #93c5fd; }
+
+
+details.admonition-success { border-color: #22c55e; }
+details.admonition-success summary { background-color: #f0fdf4; color: #166534; }
+.dark details.admonition-success summary { background-color: #052e16; color: #86efac; }
+
+
+details.admonition-warning { border-color: #eab308; }
+details.admonition-warning summary { background-color: #fefce8; color: #854d0e; }
+.dark details.admonition-warning summary { background-color: #422006; color: #fde047; }
+
+
+details.admonition-error { border-color: #ef4444; }
+details.admonition-error summary { background-color: #fef2f2; color: #991b1b; }
+.dark details.admonition-error summary { background-color: #450a0a; color: #fca5a5; }
+
+
+.cute-table-tuack {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+  padding: 0 1rem;
+  overflow-x: auto;
+}
+
+.cute-table-tuack table {
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  border-top: none;
+  border-bottom: 2.5px solid var(--foreground);
+  border-left: none;
+  border-right: none;
+  border-collapse: collapse;
+}
+
+.cute-table-tuack th {
+  border: 1px solid var(--foreground);
+  border-top: none;
+  border-bottom: 2.5px solid var(--foreground); 
+  background-color: transparent;
+  text-align: center;
+  padding: 0.75rem 1.5rem;
+  font-weight: bold;
+}
+
+.cute-table-tuack th:first-child {
+  border-left: none;
+}
+
+.cute-table-tuack th:last-child {
+  border-right: none;
+}
+
+.cute-table-tuack td {
+  border: 1px solid var(--foreground);
+  text-align: center;
+  padding: 0.75rem 1.5rem;
+}
+
+.cute-table-tuack tr td:first-child {
+  border-left: none;
+}
+
+.cute-table-tuack tr td:last-child {
+  border-right: none;
+}
+
+.cute-table-tuack tr:last-child td {
+  /* border-bottom is handled by table border-bottom, but in collapse mode, specificity matters. 
+     The table border should win if it's wider, but let's leave it to the table style. 
+     However, we need to ensure internal horizontal lines are drawn. */
+}
+
+
+.markdown ul.contains-task-list {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.markdown li.task-list-item {
+  list-style-type: none;
+  list-style: none; 
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+
+.markdown li.task-list-item::marker {
+  content: none;
+}
+
+.markdown li.task-list-item input[type="checkbox"] {
+  margin-top: 0.35rem;
 }
 
