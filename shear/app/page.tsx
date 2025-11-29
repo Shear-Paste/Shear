@@ -16,8 +16,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, X, Eye, Hash, Lock, Copy } from 'lucide-react';
 import MarkdownViewer from '@/components/MarkdownViewer';
+import config from '@/config.json';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = config.API_BASE_URL;
 
 export default function Home() {
   const { toast } = useToast();

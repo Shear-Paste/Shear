@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Hash, Pencil, Save, Trash2 } from 'lucide-react';
 import MarkdownViewer from '@/components/MarkdownViewer';
+import config from '@/config.json';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = config.API_BASE_URL;
 
 export default function HashPage() {
   const { toast } = useToast();
