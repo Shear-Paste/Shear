@@ -8,69 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import hljs from 'highlight.js';
-import 'highlight.js/styles/github-dark.css';
-import katex from 'katex';
-import 'katex/dist/katex.min.css';
 import { Copy, Hash, Pencil, Save, Trash2 } from 'lucide-react';
+import MarkdownViewer from '@/components/MarkdownViewer';
 
 const API_BASE_URL = 'http://localhost:8080/api';
-
-const renderer = new marked.Renderer();
-renderer.code = ({ text, lang }) => {
-  const language = (lang && hljs.getLanguage(lang)) ? lang : 'plaintext';
-  const highlighted = hljs.highlight(text, { language }).value;
-  return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
-};
-
-const latexExtension = {
-  name: 'latex',
-  level: 'inline',
-  start(src: string) { return src.match(/\$/)?.index; },
-  tokenizer(src: string, tokens: any) {
-    const displayRule = /^\$\$([\s\S]*?)\$\$/;
-    const inlineRule = /^\$([^$\n]+)\$/;
-    let match;
-    if (match = displayRule.exec(src)) {
-      return {
-        type: 'latex',
-        raw: match[0],
-        text: match[1],
-        displayMode: true
-      };
-    }
-    if (match = inlineRule.exec(src)) {
-      return {
-        type: 'latex',
-        raw: match[0],
-        text: match[1],
-        displayMode: false
-      };
-    }
-  },
-  renderer(token: any) {
-    return katex.renderToString(token.text, { throwOnError: false, displayMode: token.displayMode });
-  }
-};
-
-marked.use({ extensions: [latexExtension] });
-
-marked.setOptions({ gfm: true, breaks: false, renderer });
-
-const MarkdownViewer = ({ content }: { content: string }) => {
-  const [html, setHtml] = useState('');
-
-  useEffect(() => {
-    const src = typeof content === 'string' ? content : '';
-    const rendered = marked.parse(src) as string;
-    const sanitized = DOMPurify.sanitize(rendered);
-    setHtml(sanitized);
-  }, [content]);
-
-  return <div className="markdown max-w-none" dangerouslySetInnerHTML={{ __html: html }} />;
-};
 
 export default function HashPage() {
   const { toast } = useToast();
