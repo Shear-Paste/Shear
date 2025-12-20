@@ -16,6 +16,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Plus, X, Eye, Hash, Lock, Copy } from 'lucide-react';
 import MarkdownViewer from '@/components/MarkdownViewer';
+import { fetchApi } from '@/lib/api';
 import config from '@/config.json';
 
 const API_BASE_URL = config.API_BASE_URL;
@@ -43,10 +44,9 @@ export default function Home() {
   const viewPreviewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/stats`)
-      .then(res => res.json())
+    fetchApi<{ count: number }>('/stats')
       .then(data => setStats(data.count))
-      .catch(console.error);
+      .catch(err => console.error("Failed to fetch stats:", err));
   }, []);
 
   const syncScroll = (source: HTMLElement, target: HTMLElement) => {
@@ -62,16 +62,11 @@ export default function Home() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/clipboards`, {
+      const data = await fetchApi<{ hash: string }>('/clipboards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: mdInput, password: createPassword, access: createAccessPassword }),
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to save');
-      }
-      const data = await res.json();
+      
       setHashValue(data.hash);
       setFullUrl(`${window.location.origin}/${data.hash}`);
       setCreateFullscreen(false);

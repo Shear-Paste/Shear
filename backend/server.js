@@ -88,253 +88,284 @@ function generateUid() {
 }
 
 const server = http.createServer(async (req, res) => {
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    });
-    return res.end();
-  }
-
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const { pathname } = url;
-
-  if (req.method === "POST" && pathname === "/api/clipboards") {
-    try {
-      const raw = await readBody(req);
-      let payload;
-      try {
-        payload = JSON.parse(raw || "{}");
-      } catch (_) {
-        return sendJson(res, 400, { error: "Invalid JSON" });
-      }
-      const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-      const now = Date.now();
-      const lastRequestTime = requestTimestamps.get(ip);
-
-      if (lastRequestTime && now - lastRequestTime < 60000) {
-        return sendJson(res, 429, { error: "Too many requests. Please wait a minute." });
-      }
-
-      const { content, password, access } = payload;
-      if (content.length > 100000 || content.trim().length === 0) {
-        return sendJson(res, 400, { error: "Content length must be less than 100000 characters or not empty!" });
-      }
-
-      requestTimestamps.set(ip, now);
-
-      const uid = getUnusedId() || generateUid();
-      const filePath = path.join(storageDir, `${uid}.json`);
-
-      const data = {
-        content,
-        pwd: password ? sha256Hex(password) : "",
-        access: access ? sha256Hex(access) : "",
-      };
-
-      try {
-        fs.writeFileSync(filePath, JSON.stringify(data), { encoding: "utf8" });
-        return sendJson(res, 200, { hash: uid });
-      } catch (e) {
-        return sendJson(res, 500, { error: "Store failed" });
-      }
-    } catch (e) {
-      return sendJson(res, 500, { error: "Server error" });
+  try {
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      });
+      return res.end();
     }
-  }
 
-  if (req.method === "POST" && pathname === "/api/clipboards/edit") {
-    try {
-      const raw = await readBody(req);
-      let payload;
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const { pathname } = url;
+
+    if (req.method === "POST" && pathname === "/api/clipboards") {
       try {
-        payload = JSON.parse(raw || "{}");
-      } catch (_) {
-        return sendJson(res, 400, { error: "Invalid JSON" });
-      }
-      const { hash, access } = payload;
-      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
-        return sendJson(res, 400, { error: "Invalid hash" });
-      }
-
-      const filePath = path.join(storageDir, `${hash}.json`);
-      if (!fs.existsSync(filePath)) {
-        return sendJson(res, 404, { error: "Not found" });
-      }
-
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf8");
-        const data = JSON.parse(fileContent);
-
-        if (data.access && data.access === sha256Hex(access)) {
-          return sendJson(res, 200, 1); 
-        } else {
-          return sendJson(res, 200, 0); 
+        const raw = await readBody(req);
+        let payload;
+        try {
+          payload = JSON.parse(raw || "{}");
+        } catch (_) {
+          return sendJson(res, 400, { error: "Invalid JSON" });
         }
-      } catch (e) {
-        return sendJson(res, 500, { error: "Edit failed" });
-      }
-    } catch (e) {
-      return sendJson(res, 500, { error: "Server error" });
-    }
-  }
+        const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const now = Date.now();
+        const lastRequestTime = requestTimestamps.get(ip);
 
-  if (req.method === "POST" && pathname === "/api/clipboards/save") {
-    try {
-      const raw = await readBody(req);
-      let payload;
-      try {
-        payload = JSON.parse(raw || "{}");
-      } catch (_) {
-        return sendJson(res, 400, { error: "Invalid JSON" });
-      }
-      const { hash, content, access } = payload;
-      if (content.length > 100000 || content.trim().length === 0) {
-        return sendJson(res, 400, { error: "Content length must be less than 100000 characters or not empty!" });
-      }
-      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
-        return sendJson(res, 400, { error: "Invalid hash" });
-      }
+        if (lastRequestTime && now - lastRequestTime < 60000) {
+          return sendJson(res, 429, { error: "Too many requests. Please wait a minute." });
+        }
 
-      const filePath = path.join(storageDir, `${hash}.json`);
-      if (!fs.existsSync(filePath)) {
-        return sendJson(res, 404, { error: "Not found" });
-      }
+        const { content, password, access } = payload;
+        if (!content || content.length > 100000 || content.trim().length === 0) {
+          return sendJson(res, 400, { error: "Content length must be less than 100000 characters or not empty!" });
+        }
 
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf8");
-        const data = JSON.parse(fileContent);
+        requestTimestamps.set(ip, now);
 
-        if (data.access && data.access === sha256Hex(access)) {
-          data.content = content;
+        const uid = getUnusedId() || generateUid();
+        const filePath = path.join(storageDir, `${uid}.json`);
+
+        const data = {
+          content,
+          pwd: password ? sha256Hex(password) : "",
+          access: access ? sha256Hex(access) : "",
+        };
+
+        try {
           fs.writeFileSync(filePath, JSON.stringify(data), { encoding: "utf8" });
-          return sendJson(res, 200, 1); 
-        } else {
-          return sendJson(res, 200, 0); 
+          return sendJson(res, 200, { hash: uid });
+        } catch (e) {
+          console.error("Store failed:", e);
+          return sendJson(res, 500, { error: "Store failed" });
         }
       } catch (e) {
-        return sendJson(res, 500, { error: "Save failed" });
+        console.error("Clipboard creation error:", e);
+        return sendJson(res, 500, { error: "Server error" });
       }
-    } catch (e) {
-      return sendJson(res, 500, { error: "Server error" });
     }
-  }
 
-  if (req.method === "POST" && pathname === "/api/clipboards/delete") {
-    try {
-      const raw = await readBody(req);
-      let payload;
+    if (req.method === "POST" && pathname === "/api/clipboards/edit") {
       try {
-        payload = JSON.parse(raw || "{}");
-      } catch (_) {
-        return sendJson(res, 400, { error: "Invalid JSON" });
-      }
-      const { hash, access } = payload;
-      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
-        return sendJson(res, 400, { error: "Invalid hash" });
-      }
-
-      const filePath = path.join(storageDir, `${hash}.json`);
-      if (!fs.existsSync(filePath)) {
-        return sendJson(res, 404, { error: "Not found" });
-      }
-
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf8");
-        const data = JSON.parse(fileContent);
-
-        if (data.access && data.access === sha256Hex(access)) {
-          fs.unlinkSync(filePath);
-          recycleId(hash);
-          return sendJson(res, 200, 1); 
-        } else {
-          return sendJson(res, 200, 0); 
+        const raw = await readBody(req);
+        let payload;
+        try {
+          payload = JSON.parse(raw || "{}");
+        } catch (_) {
+          return sendJson(res, 400, { error: "Invalid JSON" });
         }
-      } catch (e) {
-        return sendJson(res, 500, { error: "Delete failed" });
-      }
-    } catch (e) {
-      return sendJson(res, 500, { error: "Server error" });
-    }
-  }
+        const { hash, access } = payload;
+        if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+          return sendJson(res, 400, { error: "Invalid hash" });
+        }
 
-  if (req.method === "POST" && pathname === "/api/clipboards/view") {
-    try {
-      const raw = await readBody(req);
-      let payload;
-      try {
-        payload = JSON.parse(raw || "{}");
-      } catch (_) {
-        return sendJson(res, 400, { error: "Invalid JSON" });
-      }
-      const { hash, password } = payload;
-      if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
-        return sendJson(res, 400, { error: "Invalid hash" });
-      }
+        const filePath = path.join(storageDir, `${hash}.json`);
+        if (!fs.existsSync(filePath)) {
+          return sendJson(res, 404, { error: "Not found" });
+        }
 
-      const filePath = path.join(storageDir, `${hash}.json`);
-      if (!fs.existsSync(filePath)) {
-        return sendJson(res, 404, { error: "Not found" });
-      }
+        try {
+          const fileContent = fs.readFileSync(filePath, "utf8");
+          const data = JSON.parse(fileContent);
 
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf8");
-        const data = JSON.parse(fileContent);
-
-        if (data.pwd) {
-          if (!password || data.pwd !== sha256Hex(password)) {
-            return sendJson(res, 200, -1); 
+          if (data.access && data.access === sha256Hex(access)) {
+            return sendJson(res, 200, 1); 
+          } else {
+            return sendJson(res, 200, 0); 
           }
+        } catch (e) {
+          console.error("Edit check failed:", e);
+          return sendJson(res, 500, { error: "Edit failed" });
+        }
+      } catch (e) {
+        console.error("Edit error:", e);
+        return sendJson(res, 500, { error: "Server error" });
+      }
+    }
+
+    if (req.method === "POST" && pathname === "/api/clipboards/save") {
+      try {
+        const raw = await readBody(req);
+        let payload;
+        try {
+          payload = JSON.parse(raw || "{}");
+        } catch (_) {
+          return sendJson(res, 400, { error: "Invalid JSON" });
+        }
+        const { hash, content, access } = payload;
+        if (!content || content.length > 100000 || content.trim().length === 0) {
+          return sendJson(res, 400, { error: "Content length must be less than 100000 characters or not empty!" });
+        }
+        if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+          return sendJson(res, 400, { error: "Invalid hash" });
         }
 
+        const filePath = path.join(storageDir, `${hash}.json`);
+        if (!fs.existsSync(filePath)) {
+          return sendJson(res, 404, { error: "Not found" });
+        }
+
+        try {
+          const fileContent = fs.readFileSync(filePath, "utf8");
+          const data = JSON.parse(fileContent);
+
+          if (data.access && data.access === sha256Hex(access)) {
+            data.content = content;
+            fs.writeFileSync(filePath, JSON.stringify(data), { encoding: "utf8" });
+            return sendJson(res, 200, 1); 
+          } else {
+            return sendJson(res, 200, 0); 
+          }
+        } catch (e) {
+          console.error("Save failed:", e);
+          return sendJson(res, 500, { error: "Save failed" });
+        }
+      } catch (e) {
+        console.error("Save error:", e);
+        return sendJson(res, 500, { error: "Server error" });
+      }
+    }
+
+    if (req.method === "POST" && pathname === "/api/clipboards/delete") {
+      try {
+        const raw = await readBody(req);
+        let payload;
+        try {
+          payload = JSON.parse(raw || "{}");
+        } catch (_) {
+          return sendJson(res, 400, { error: "Invalid JSON" });
+        }
+        const { hash, access } = payload;
+        if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+          return sendJson(res, 400, { error: "Invalid hash" });
+        }
+
+        const filePath = path.join(storageDir, `${hash}.json`);
+        if (!fs.existsSync(filePath)) {
+          return sendJson(res, 404, { error: "Not found" });
+        }
+
+        try {
+          const fileContent = fs.readFileSync(filePath, "utf8");
+          const data = JSON.parse(fileContent);
+
+          if (data.access && data.access === sha256Hex(access)) {
+            fs.unlinkSync(filePath);
+            recycleId(hash);
+            return sendJson(res, 200, 1); 
+          } else {
+            return sendJson(res, 200, 0); 
+          }
+        } catch (e) {
+          console.error("Delete failed:", e);
+          return sendJson(res, 500, { error: "Delete failed" });
+        }
+      } catch (e) {
+        console.error("Delete error:", e);
+        return sendJson(res, 500, { error: "Server error" });
+      }
+    }
+
+    if (req.method === "POST" && pathname === "/api/clipboards/view") {
+      try {
+        const raw = await readBody(req);
+        let payload;
+        try {
+          payload = JSON.parse(raw || "{}");
+        } catch (_) {
+          return sendJson(res, 400, { error: "Invalid JSON" });
+        }
+        const { hash, password } = payload;
+        if (!hash || !/^[a-zA-Z0-9-_]{8}$/.test(hash)) {
+          return sendJson(res, 400, { error: "Invalid hash" });
+        }
+
+        const filePath = path.join(storageDir, `${hash}.json`);
+        if (!fs.existsSync(filePath)) {
+          return sendJson(res, 404, { error: "Not found" });
+        }
+
+        try {
+          const fileContent = fs.readFileSync(filePath, "utf8");
+          const data = JSON.parse(fileContent);
+
+          if (data.pwd) {
+            if (!password || data.pwd !== sha256Hex(password)) {
+              return sendJson(res, 200, -1); 
+            }
+          }
+
+          return sendJson(res, 200, { content: data.content });
+        } catch (e) {
+          console.error("View failed:", e);
+          return sendJson(res, 500, { error: "Read failed" });
+        }
+      } catch (e) {
+        console.error("View error:", e);
+        return sendJson(res, 500, { error: "Server error" });
+      }
+    }
+
+    if (req.method === "GET" && pathname.startsWith("/api/clipboards/")) {
+      const uid = pathname.split("/").pop();
+      if (!uid || !/^[a-zA-Z0-9-_]{8}$/.test(uid)) {
+        return sendJson(res, 400, { error: "Invalid hash" });
+      }
+      const filePath = path.join(storageDir, `${uid}.json`);
+      if (!fs.existsSync(filePath)) {
+        return sendJson(res, 404, { error: "Not found" });
+      }
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const data = JSON.parse(fileContent);
         return sendJson(res, 200, { content: data.content });
       } catch (e) {
+        console.error("GET clipboard failed:", e);
         return sendJson(res, 500, { error: "Read failed" });
       }
-    } catch (e) {
-      return sendJson(res, 500, { error: "Server error" });
+    }
+
+    if (req.method === "GET" && pathname === "/api/stats") {
+      try {
+        const files = fs.readdirSync(storageDir).filter(f => f !== "unused_ids.json");
+        return sendJson(res, 200, { count: files.length });
+      } catch (e) {
+        console.error("Stats failed:", e);
+        return sendJson(res, 500, { error: "Stats failed" });
+      }
+    }
+
+    if (req.method === "GET" && pathname === "/") {
+      return sendJson(res, 200, { ok: true });
+    }
+
+    res.writeHead(404, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.end(JSON.stringify({ error: "Route not found" }));
+  } catch (error) {
+    console.error("Global server error:", error);
+    if (!res.headersSent) {
+      res.writeHead(500, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(JSON.stringify({ error: "Internal Server Error" }));
     }
   }
-
-  if (req.method === "GET" && pathname.startsWith("/api/clipboards/")) {
-    const uid = pathname.split("/").pop();
-    if (!uid || !/^[a-zA-Z0-9-_]{8}$/.test(uid)) {
-      return sendJson(res, 400, { error: "Invalid hash" });
-    }
-    const filePath = path.join(storageDir, `${uid}.json`);
-    if (!fs.existsSync(filePath)) {
-      return sendJson(res, 404, { error: "Not found" });
-    }
-    try {
-      const fileContent = fs.readFileSync(filePath, "utf8");
-      const data = JSON.parse(fileContent);
-      return sendJson(res, 200, { content: data.content });
-    } catch (e) {
-      return sendJson(res, 500, { error: "Read failed" });
-    }
-  }
-
-  if (req.method === "GET" && pathname === "/api/stats") {
-    try {
-      const files = fs.readdirSync(storageDir).filter(f => f !== "unused_ids.json");
-      return sendJson(res, 200, { count: files.length });
-    } catch (e) {
-      return sendJson(res, 500, { error: "Stats failed" });
-    }
-  }
-
-  if (req.method === "GET" && pathname === "/") {
-    return sendJson(res, 200, { ok: true });
-  }
-
-  res.writeHead(404, {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-  });
-  res.end(JSON.stringify({ error: "Route not found" }));
 });
 
 server.listen(8080, () => {
   console.log("API server http://localhost:8080");
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
 });

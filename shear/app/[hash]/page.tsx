@@ -10,9 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Hash, Pencil, Save, Trash2 } from 'lucide-react';
 import MarkdownViewer from '@/components/MarkdownViewer';
-import config from '@/config.json';
-
-const API_BASE_URL = config.API_BASE_URL;
+import { fetchApi } from '@/lib/api';
 
 export default function HashPage() {
   const { toast } = useToast();
@@ -45,14 +43,12 @@ export default function HashPage() {
       toast({ title: '错误', description: 'UID 格式不正确。' });
       return;
     }
-    fetch(`${API_BASE_URL}/clipboards/view`, {
+    
+    fetchApi<any>('/clipboards/view', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hash: h, password: '' }),
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('fetch failed');
-        const data = await res.json();
+      .then((data) => {
         if (data === -1) {
           setPasswordDialogOpen(true);
           return;
@@ -60,21 +56,18 @@ export default function HashPage() {
         setContent(typeof data === 'string' ? data : data.content);
         setIsLoaded(true);
       })
-      .catch(() => {
-        toast({ title: '错误', description: '拉取失败' });
+      .catch((err) => {
+        toast({ title: '错误', description: err.message || '拉取失败' });
       });
   }, [hash, toast]);
 
   const submitPassword = () => {
     const h = hash;
-    fetch(`${API_BASE_URL}/clipboards/view`, {
+    fetchApi<any>('/clipboards/view', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hash: h, password }),
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('fetch failed');
-        const data = await res.json();
+      .then((data) => {
         if (data === -1) {
           toast({ title: '提示', description: '密码错误，访问被拒绝。' });
           return;
@@ -83,21 +76,18 @@ export default function HashPage() {
         setIsLoaded(true);
         setPasswordDialogOpen(false);
       })
-      .catch(() => {
-        toast({ title: '错误', description: '拉取失败' });
+      .catch((err) => {
+        toast({ title: '错误', description: err.message || '拉取失败' });
       });
   };
 
   const handleDelete = () => {
     const h = hash;
-    fetch(`${API_BASE_URL}/clipboards/delete`, {
+    fetchApi<number>('/clipboards/delete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hash: h, access: accessPassword }),
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('fetch failed');
-        const data = await res.json();
+      .then((data) => {
         if (data === 1) {
           toast({ title: '成功', description: '成功删除该内容。' });
           setContent('');
@@ -107,21 +97,18 @@ export default function HashPage() {
           toast({ title: '失败', description: '删除失败，请检查安全密码是否正确。' });
         }
       })
-      .catch(() => {
-        toast({ title: '错误', description: '删除失败' });
+      .catch((err) => {
+        toast({ title: '错误', description: err.message || '删除失败' });
       });
   };
 
   const handleEdit = () => {
     const h = hash;
-    fetch(`${API_BASE_URL}/clipboards/edit`, {
+    fetchApi<number>('/clipboards/edit', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hash: h, access: editAccessPassword }),
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('fetch failed');
-        const data = await res.json();
+      .then((data) => {
         if (data === 1) {
           setEdit(true);
           setEditPasswordDialogOpen(false);
@@ -130,21 +117,18 @@ export default function HashPage() {
           toast({ title: '失败', description: '安全密码错误。' });
         }
       })
-      .catch(() => {
-        toast({ title: '错误', description: '操作失败' });
+      .catch((err) => {
+        toast({ title: '错误', description: err.message || '操作失败' });
       });
   };
 
   const handleSave = () => {
     const h = hash;
-    fetch(`${API_BASE_URL}/clipboards/save`, {
+    fetchApi<number>('/clipboards/save', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hash: h, content, access: editAccessPassword }),
     })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('fetch failed');
-        const data = await res.json();
+      .then((data) => {
         if (data === 1) {
           setEdit(false);
           toast({ title: '成功', description: '内容已保存。' });
@@ -152,8 +136,8 @@ export default function HashPage() {
           toast({ title: '失败', description: '保存失败。' });
         }
       })
-      .catch(() => {
-        toast({ title: '错误', description: '操作失败' });
+      .catch((err) => {
+        toast({ title: '错误', description: err.message || '操作失败' });
       });
   };
 
