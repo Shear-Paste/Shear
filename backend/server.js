@@ -308,24 +308,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    if (req.method === "GET" && pathname.startsWith("/api/clipboards/")) {
-      const uid = pathname.split("/").pop();
-      if (!uid || !/^[a-zA-Z0-9-_]{8}$/.test(uid)) {
-        return sendJson(res, 400, { error: "Invalid hash" });
-      }
-      const filePath = path.join(storageDir, `${uid}.json`);
-      if (!fs.existsSync(filePath)) {
-        return sendJson(res, 404, { error: "Not found" });
-      }
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf8");
-        const data = JSON.parse(fileContent);
-        return sendJson(res, 200, { content: data.content });
-      } catch (e) {
-        console.error("GET clipboard failed:", e);
-        return sendJson(res, 500, { error: "Read failed" });
-      }
-    }
+
 
     if (req.method === "GET" && pathname === "/api/stats") {
       try {
